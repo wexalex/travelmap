@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#0b0c0e">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TravelMap">
+  <title>TravelMap</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- ===================== GLOBUS ===================== -->
+  <section class="view is-active" id="view-globe">
+    <div id="globe" class="globe-canvas"></div>
+
+    <div class="glass-bar top">
+      <div class="brand">TravelMap</div>
+      <button class="round-btn" id="btn-menu" aria-label="Optionen">
+        <svg viewBox="0 0 24 24" class="ic"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+      </button>
+    </div>
+
+    <div class="globe-controls">
+      <div class="segmented" id="cat-filter">
+        <button class="seg is-active" data-cat="all">Alle</button>
+        <button class="seg" data-cat="business">Business</button>
+        <button class="seg" data-cat="private">Privat</button>
+      </div>
+      <div class="period-wrap">
+        <select class="period-select" id="period-globe" aria-label="Zeitraum"></select>
+      </div>
+    </div>
+
+    <div class="stat-pills" id="statbar">
+      <div><b id="s-countries">0</b><span>Länder</span></div>
+      <div><b id="s-cities">0</b><span>Orte</span></div>
+      <div><b id="s-km">0</b><span>km</span></div>
+      <div><b id="s-checkins">0</b><span>Check-ins</span></div>
+    </div>
+
+    <div class="empty-hint" id="empty-globe" hidden>
+      <p>Noch keine Orte.<br>Tippe auf <span class="plus-inline">+</span> für deinen ersten Check-in.</p>
+    </div>
+  </section>
+
+  <!-- ===================== PASS ===================== -->
+  <section class="view" id="view-pass">
+    <header class="ios-head">
+      <h1>Pass</h1>
+      <p class="ios-sub" id="pass-sub">Deine Stempelsammlung</p>
+    </header>
+    <div class="scroll">
+      <div class="stamp-grid" id="stamp-grid"></div>
+    </div>
+  </section>
+
+  <!-- ===================== RÜCKBLICK ===================== -->
+  <section class="view" id="view-review">
+    <header class="ios-head">
+      <h1>Rückblick</h1>
+      <div class="period-wrap light"><select class="period-select" id="period-review" aria-label="Zeitraum"></select></div>
+    </header>
+    <div class="scroll">
+      <div class="stat-grid" id="review-stats"></div>
+      <button class="cta" id="btn-share">Als Bild teilen</button>
+      <h2 class="group-title">Reisen</h2>
+      <div class="card-group" id="trip-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== VERLAUF ===================== -->
+  <section class="view" id="view-list">
+    <header class="ios-head"><h1>Verlauf</h1></header>
+    <div class="scroll">
+      <div class="card-group" id="checkin-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== CHECK-IN (modal-artig) ===================== -->
+  <section class="view sheet-view" id="view-checkin">
+    <header class="modal-head">
+      <button class="text-btn" id="btn-cancel">Abbrechen</button>
+      <span class="modal-title">Check-in</span>
+      <span class="text-btn ghost">&nbsp;</span>
+    </header>
+    <div class="scroll">
+      <div class="segmented wide" id="mode-seg">
+        <button class="seg is-active" data-mode="gps">Jetzt hier</button>
+        <button class="seg" data-mode="search">Ort suchen</button>
+      </div>
+
+      <div class="mode-panel" id="panel-gps">
+        <button class="cta" id="btn-locate">Standort erfassen</button>
+        <p class="hint" id="gps-status"></p>
+      </div>
+
+      <div class="mode-panel" id="panel-search" hidden>
+        <input class="field" id="search-input" type="text" placeholder="z.B. Wien, Barcelona, Berlin…" autocomplete="off">
+        <ul class="results" id="search-results"></ul>
+      </div>
+
+      <div class="picked" id="picked" hidden>
+        <div class="form-card">
+          <div class="row"><label>Ort</label><input class="inline-field" id="loc-label" type="text" placeholder="Ort"></div>
+          <div class="row"><label>Wann</label>
+            <div class="segmented mini" id="when-seg" style="margin-left:auto">
+              <button class="seg is-active" data-when="point">Zeitpunkt</button>
+              <button class="seg" data-when="range">Zeitraum</button>
+            </div>
+          </div>
+          <div class="row" id="row-point"><label>Zeitpunkt</label><input class="inline-field" id="loc-date" type="datetime-local"></div>
+          <div class="row" id="row-from" hidden><label>Von</label><input class="inline-field" id="loc-from" type="date"></div>
+          <div class="row" id="row-to" hidden><label>Bis</label><input class="inline-field" id="loc-to" type="date"></div>
+        </div>
+
+        <div class="segmented cat" id="cat-seg">
+          <button class="seg is-active" data-cat="business">Business</button>
+          <button class="seg" data-cat="private">Privat</button>
+        </div>
+
+        <div class="form-card">
+          <textarea class="inline-field area" id="loc-note" rows="2" placeholder="Notiz (optional)"></textarea>
+        </div>
+
+        <input id="loc-photo" type="file" accept="image/*" capture="environment" hidden>
+        <button class="ghost-btn" id="btn-photo">📷 Foto hinzufügen</button>
+        <div class="photo-preview" id="photo-preview" hidden><img id="photo-img" alt="Vorschau"></div>
+
+        <button class="cta save" id="btn-save">Check-in speichern</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAB -->
+  <button class="fab" id="fab" aria-label="Neuer Check-in">
+    <svg viewBox="0 0 24 24" class="ic"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+
+  <!-- Bottom nav -->
+  <nav class="tabbar">
+    <button class="tab is-active" data-view="view-globe">
+      <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>Globus</button>
+    <button class="tab" data-view="view-pass">
+      <svg viewBox="0 0 24 24" class="ic"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.4"/><path d="M9 15.5h6"/></svg>Pass</button>
+    <button class="tab" data-view="view-review">
+      <svg viewBox="0 0 24 24" class="ic"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Rückblick</button>
+    <button class="tab" data-view="view-list">
+      <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>Verlauf</button>
+  </nav>
+
+  <!-- Menu sheet -->
+  <div class="sheet-backdrop" id="menu-backdrop" hidden>
+    <div class="sheet" id="menu-sheet">
+      <div class="sheet-handle"></div>
+      <h3>Optionen</h3>
+      <button class="sheet-btn" id="btn-export">Backup exportieren (.json)</button>
+      <button class="sheet-btn" id="btn-import">Backup importieren</button>
+      <input id="import-file" type="file" accept="application/json,.json" hidden>
+      <div class="sheet-row">Neue Reise ab Pause von
+        <select id="gap-select">
+          <option value="24">1 Tag</option>
+          <option value="48" selected>2 Tagen</option>
+          <option value="72">3 Tagen</option>
+          <option value="168">1 Woche</option>
+        </select>
+      </div>
+      <button class="sheet-btn cancel" id="btn-menu-close">Schließen</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="vendor/globe.gl.min.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/geo.js"></script>
+  <script src="js/stats.js"></script>
+  <script src="js/globe.js"></script>
+  <script src="js/export.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
