@@ -11,7 +11,6 @@ const ASSETS = [
   'js/export.js',
   'js/app.js',
   'vendor/globe.gl.min.js',
-  'assets/earth-blue-marble.jpg',
   'assets/earth-dark.jpg',
   'assets/earth-topology.png',
   'manifest.webmanifest',
