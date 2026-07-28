@@ -8,6 +8,8 @@ TM.stats = (function () {
     if (c.city) return (c.cc || '') + '|' + c.city;
     return c.lat.toFixed(1) + ',' + c.lon.toFixed(1);
   }
+  // tripsById kann ein Objekt {id: trip} oder eine Map sein.
+  function getTrip(tb, id) { if (!tb) return null; return tb.get ? tb.get(id) : tb[id]; }
 
   function filter(list, f) {
     f = f || {};
@@ -28,13 +30,13 @@ TM.stats = (function () {
     return km;
   }
 
-  // Kilometer: mit Homebase = Summe der Hin-/Rückwege je Reise (immer von/nach Home).
-  function totalKm(list, home, gapHours) {
-    if (home) return trips(list, gapHours, home).reduce((s, t) => s + t.km, 0);
+  // Kilometer: Daytrips = Rundweg von/nach Home, Multiday-Reisen = Kettenpfad.
+  function totalKm(list, home, gapHours, tripsById) {
+    if (home) return trips(list, gapHours, home, tripsById).reduce((s, t) => s + t.km, 0);
     return legsKm([...list].sort((a, b) => a.ts - b.ts));
   }
 
-  function summary(list, home, gapHours) {
+  function summary(list, home, gapHours, tripsById) {
     const sorted = [...list].sort((a, b) => a.ts - b.ts);
     const countries = new Set(sorted.map((c) => c.cc).filter(Boolean));
     const places = new Set(sorted.map(pkey));
@@ -51,39 +53,57 @@ TM.stats = (function () {
       countryList: [...countries],
       places: places.size,
       cities: cityPlaces.size,
-      km: Math.round(totalKm(sorted, home, gapHours)),
+      km: Math.round(totalKm(sorted, home, gapHours, tripsById)),
       topPlace: topPlace ? { label: topPlace.city || topPlace.label, cc: topPlace.cc, n: topN } : null,
       first: sorted[0] ? sorted[0].ts : null,
       last: sorted.length ? sorted[sorted.length - 1].ts : null,
     };
   }
 
-  function trips(list, gapHours, home) {
-    const gap = (gapHours || 48) * 3600e3;
-    const sorted = [...list].sort((a, b) => a.ts - b.ts);
-    const out = [];
-    let cur = null;
-    for (const c of sorted) {
-      const endTs = c.tsEnd || c.ts; // Zeitraum-Ende berücksichtigen
-      if (!cur || c.ts - cur._last > gap) {
-        cur = { items: [c], start: c.ts, end: endTs, _last: endTs };
-        out.push(cur);
-      } else {
-        cur.items.push(c); cur.end = Math.max(cur.end, endTs); cur._last = endTs;
-      }
+  function trips(list, gapHours, home, tripsById) {
+    // Pins nach expliziter Reise (tripId) bzw. eigenständig aufteilen.
+    const explicit = new Map();
+    const standalone = [];
+    for (const c of list) {
+      if (c.tripId) { if (!explicit.has(c.tripId)) explicit.set(c.tripId, []); explicit.get(c.tripId).push(c); }
+      else standalone.push(c);
     }
-    return out.map((t) => {
+    const result = [];
+    // Multiday-Reisen: mehrere Pins als echte Kette (optional mit Home-Enden)
+    for (const [tid, items] of explicit) {
+      const trip = getTrip(tripsById, tid);
+      const s = [...items].sort((a, b) => a.ts - b.ts);
+      const countries = [...new Set(s.map((c) => c.cc).filter(Boolean))];
+      const cities = [...new Set(s.filter((c) => c.city).map((c) => c.city))];
+      const path = (trip && trip.fromHome && home) ? [home, ...s, home] : s;
+      result.push({
+        id: tid, isTrip: true, fromHome: !!(trip && trip.fromHome),
+        start: s[0].ts, end: Math.max(...s.map((c) => c.tsEnd || c.ts)),
+        items: s, countries, cities,
+        km: Math.round(legsKm(path)),
+        title: (trip && trip.name) || cities.slice(0, 3).join(' · ') || 'Reise',
+      });
+    }
+    // Eigenständige Daytrips: nach Zeitlücke gruppieren, Rundweg von/nach Home
+    const gap = (gapHours || 48) * 3600e3;
+    const s2 = [...standalone].sort((a, b) => a.ts - b.ts);
+    let cur = null; const groups = [];
+    for (const c of s2) {
+      const endTs = c.tsEnd || c.ts;
+      if (!cur || c.ts - cur._last > gap) { cur = { items: [c], start: c.ts, end: endTs, _last: endTs }; groups.push(cur); }
+      else { cur.items.push(c); cur.end = Math.max(cur.end, endTs); cur._last = endTs; }
+    }
+    for (const t of groups) {
       const countries = [...new Set(t.items.map((c) => c.cc).filter(Boolean))];
       const cities = [...new Set(t.items.filter((c) => c.city).map((c) => c.city))];
-      // Mit Homebase: Weg von Home -> Orte -> Home
       const path = home ? [home, ...t.items, home] : t.items;
-      return {
-        start: t.start, end: t.end, items: t.items,
-        countries, cities,
-        km: Math.round(legsKm(path)),
+      result.push({
+        isTrip: false, start: t.start, end: t.end, items: t.items,
+        countries, cities, km: Math.round(legsKm(path)),
         title: cities.slice(0, 3).join(' · ') || 'Reise',
-      };
-    }).reverse(); // neueste zuerst
+      });
+    }
+    return result.sort((a, b) => b.start - a.start); // neueste zuerst
   }
 
   // ---- Globus-Daten ----
@@ -99,32 +119,42 @@ TM.stats = (function () {
     return [...m.values()];
   }
 
-  function legs(list, home) {
-    // Mit Homebase: Nabe-Speiche — jede Strecke geht von Home zum Ort (und zurück).
+  function legs(list, home, tripsById) {
+    const out = [];
+    const standalone = [];
+    const byTrip = new Map();
+    for (const c of list) {
+      if (c.tripId) { if (!byTrip.has(c.tripId)) byTrip.set(c.tripId, []); byTrip.get(c.tripId).push(c); }
+      else standalone.push(c);
+    }
+    // Daytrips: Nabe-Speiche — jede Strecke geht von Home zum Ort (und zurück).
     if (home) {
       const hk = pkey(home);
-      return points(list)
-        .filter((p) => p.key !== hk)
-        .map((p) => ({
-          startLat: home.lat, startLng: home.lon, endLat: p.lat, endLng: p.lon,
-          count: p.count, category: p.private > p.business ? 'private' : 'business',
-        }));
-    }
-    const sorted = [...list].sort((a, b) => a.ts - b.ts);
-    const m = new Map();
-    for (let i = 1; i < sorted.length; i++) {
-      const a = sorted[i - 1], b = sorted[i];
-      const ka = pkey(a), kb = pkey(b);
-      if (ka === kb) continue;
-      const key = [ka, kb].sort().join('~');
-      let e = m.get(key);
-      if (!e) {
-        e = { startLat: a.lat, startLng: a.lon, endLat: b.lat, endLng: b.lon, count: 0, category: b.category };
-        m.set(key, e);
+      for (const p of points(standalone)) {
+        if (p.key === hk) continue;
+        out.push({ startLat: home.lat, startLng: home.lon, endLat: p.lat, endLng: p.lon, count: p.count, category: p.private > p.business ? 'private' : 'business', kind: 'spoke' });
       }
-      e.count++; e.category = b.category;
+    } else {
+      const sorted = [...standalone].sort((a, b) => a.ts - b.ts);
+      for (let i = 1; i < sorted.length; i++) {
+        const a = sorted[i - 1], b = sorted[i];
+        if (pkey(a) === pkey(b)) continue;
+        out.push({ startLat: a.lat, startLng: a.lon, endLat: b.lat, endLng: b.lon, count: 1, category: b.category, kind: 'spoke' });
+      }
     }
-    return [...m.values()];
+    // Multiday-Reisen: Kette der eigenen Pins (optional mit Home-Enden)
+    for (const [tid, items] of byTrip) {
+      const trip = getTrip(tripsById, tid);
+      const sorted = [...items].sort((a, b) => a.ts - b.ts);
+      const seq = [];
+      for (const c of sorted) { if (!seq.length || pkey(seq[seq.length - 1]) !== pkey(c)) seq.push(c); }
+      let chain = seq.map((c) => ({ lat: c.lat, lon: c.lon, category: c.category }));
+      if (trip && trip.fromHome && home) chain = [{ lat: home.lat, lon: home.lon }, ...chain, { lat: home.lat, lon: home.lon }];
+      for (let i = 1; i < chain.length; i++) {
+        out.push({ startLat: chain[i - 1].lat, startLng: chain[i - 1].lon, endLat: chain[i].lat, endLng: chain[i].lon, count: 1, category: chain[i].category || chain[i - 1].category || 'private', kind: 'trip' });
+      }
+    }
+    return out;
   }
 
   // Stempelpass: ein Stempel je Ort (Stadt), mit Anzahl, Zeitraum, Icon.

@@ -1,7 +1,7 @@
 /* IndexedDB wrapper — alles bleibt lokal am Gerät. */
 window.TM = window.TM || {};
 TM.db = (function () {
-  const NAME = 'travelmap', VERSION = 1;
+  const NAME = 'travelmap', VERSION = 2;
   let dbp = null;
 
   function open() {
@@ -19,6 +19,9 @@ TM.db = (function () {
         }
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings', { keyPath: 'key' });
+        }
+        if (!db.objectStoreNames.contains('trips')) {
+          db.createObjectStore('trips', { keyPath: 'id' }); // { id, name, fromHome }
         }
       };
       r.onsuccess = () => res(r.result);
@@ -74,6 +77,24 @@ TM.db = (function () {
     async setSetting(key, value) {
       const s = await store('settings', 'readwrite');
       return P(s.put({ key, value }));
+    },
+    async allTrips() {
+      const s = await store('trips', 'readonly');
+      return P(s.getAll());
+    },
+    async putTrip(t) {
+      const s = await store('trips', 'readwrite');
+      return P(s.put(t));
+    },
+    async deleteTrip(id) {
+      // Trip löschen; zugehörige Pins wieder eigenständig machen (tripId = null)
+      const cs = await store('checkins', 'readwrite');
+      const all = await P(cs.getAll());
+      for (const c of all) {
+        if (c.tripId === id) { c.tripId = null; await P(cs.put(c)); }
+      }
+      const ts = await store('trips', 'readwrite');
+      return P(ts.delete(id));
     },
   };
 })();

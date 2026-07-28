@@ -37,13 +37,15 @@ TM.GlobeView = class {
       .labelColor(() => 'rgba(242,243,245,0.82)');
 
     const c = this.g.controls();
-    c.autoRotate = true; c.autoRotateSpeed = 0.42; c.enableZoom = true; c.minDistance = 140;
+    c.autoRotate = true; c.autoRotateSpeed = 0.42; c.enableZoom = true;
+    c.minDistance = 101;   // sehr nah heranzoombar (Globusradius = 100)
+    c.maxDistance = 700;   // nicht ins Leere zoomen
     el.addEventListener('pointerdown', () => { c.autoRotate = false; });
 
     this.resize = this.resize.bind(this);
     window.addEventListener('resize', this.resize);
     this.resize();
-    this.g.pointOfView({ lat: 30, lng: 10, altitude: 2.4 }, 0);
+    this.g.pointOfView({ lat: 48, lng: 12, altitude: 1.8 }, 0); // Europa-Fokus
   }
 
   resize() {
