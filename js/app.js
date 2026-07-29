@@ -189,9 +189,10 @@
     const trips = TM.stats.trips(list, state.gapHours, state.home, tb);
     $('#trip-list').innerHTML = trips.length ? trips.map((t) => `
       <div class="trip">
-        <div class="t-top"><span class="t-title">${t.title}</span><span class="t-date">${fmtRange(t.start, t.end)}</span></div>
+        <div class="t-top"><span class="t-title">${t.isTrip ? '🧭 ' : ''}${escapeHtml(t.title)}</span><span class="t-date">${fmtRange(t.start, t.end)}</span></div>
         <div class="t-meta">${t.countries.map((cc) => `<span class="flag">${TM.geo.flag(cc)}</span>`).join('')}
           ${t.cities.length} Orte · ${fmtKm(t.km)} km · ${t.items.length} Check-ins</div>
+        ${t.isTrip ? `<button class="trip-add" data-add-pin="${t.id}">+ Stopp hinzufügen</button>` : ''}
       </div>`).join('') : '<p class="empty-note">Keine Einträge in diesem Zeitraum.</p>';
   }
 
@@ -279,6 +280,24 @@
     $('#trip-name-row').hidden = !isNew;
     const t = state.trips.find((x) => x.id === v);
     $('#trip-fromhome').checked = isNew ? false : !!(t && t.fromHome);
+    renderTripPins(isNew ? null : v);
+  }
+  function renderTripPins(tripId) {
+    const el = $('#trip-pins');
+    if (!tripId) { el.innerHTML = ''; return; }
+    const pins = state.all.filter((c) => c.tripId === tripId).sort((a, b) => a.ts - b.ts);
+    el.innerHTML = pins.length
+      ? '<div class="tp-title">Stopps dieser Reise</div>' + pins.map((p, i) => `<span class="tp">${i + 1}. ${escapeHtml(p.city || p.label)}</span>`).join('')
+      : '<div class="tp-title">Noch keine Stopps – setz den ersten.</div>';
+  }
+  // Check-in direkt für eine bestehende Reise öffnen (fügt zuverlässig einen Stopp hinzu).
+  function openCheckinForTrip(tripId) {
+    resetCheckinForm();
+    setTripType('multi');
+    populateTripSelect();
+    $('#trip-select').value = tripId;
+    onTripSelectChange();
+    showView('view-checkin');
   }
 
   function setWhen(mode) {
@@ -570,6 +589,12 @@
 
     $('#btn-save').addEventListener('click', save);
     $('#btn-share').addEventListener('click', shareImage);
+
+    // Rückblick: Stopp zu bestehender Reise hinzufügen
+    $('#trip-list').addEventListener('click', (e) => {
+      const id = e.target.dataset && e.target.dataset.addPin;
+      if (id) openCheckinForTrip(id);
+    });
 
     // Menü
     $('#btn-menu').addEventListener('click', () => openMenu(true));

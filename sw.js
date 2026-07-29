@@ -1,5 +1,5 @@
 /* Service Worker — App komplett offline nutzbar (Karten-Geocoding braucht Netz). */
-const CACHE = 'travelmap-v3';
+const CACHE = 'travelmap-v4';
 const ASSETS = [
   './',
   'index.html',
@@ -22,12 +22,15 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE)
-      .then((c) => c.addAll(ASSETS))
-      .then(() => self.skipWaiting())
-      .catch(() => {})
-  );
+  // Frisch aus dem Netz vorladen (cache:'reload'), damit nie eine veraltete
+  // Datei aus dem HTTP-Cache in die neue Cache-Version gerät.
+  e.waitUntil((async () => {
+    const c = await caches.open(CACHE);
+    await Promise.all(ASSETS.map(async (u) => {
+      try { const res = await fetch(u, { cache: 'reload' }); if (res && res.ok) await c.put(u, res); } catch (e) { /* offline ok */ }
+    }));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (e) => {
