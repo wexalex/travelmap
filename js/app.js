@@ -51,7 +51,7 @@
   function showView(id) {
     $$('.view').forEach((v) => v.classList.toggle('is-active', v.id === id));
     $$('.tab').forEach((t) => t.classList.toggle('is-active', t.dataset.view === id));
-    $('#fab').style.display = id === 'view-checkin' ? 'none' : '';
+    $('#fab').style.display = (id === 'view-globe') ? '' : 'none'; // FAB nur auf Globus/Karte
     if (id === 'view-globe' && state.globe) state.globe.resize();
     if (id === 'view-pass') renderPass();
     if (id === 'view-review') renderReview();
