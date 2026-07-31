@@ -623,6 +623,26 @@
   // ---------- Menü ----------
   function openMenu(open) { $('#menu-backdrop').hidden = !open; if (open) updateStorageInfo(); }
 
+  // Neu laden (in der installierten App gibt es keine Reload-Geste) + nach Update suchen
+  async function reloadApp() {
+    toast('Wird neu geladen…');
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await reg.update();
+          const w = reg.installing || reg.waiting;
+          if (w) await new Promise((res) => {
+            const done = () => res();
+            w.addEventListener('statechange', () => { if (w.state === 'activated') done(); });
+            setTimeout(done, 4000); // Fallback, falls kein Update kommt
+          });
+        }
+      }
+    } catch (e) { /* egal – trotzdem neu laden */ }
+    location.reload();
+  }
+
   // ---------- Wiring ----------
   function wire() {
     $$('.tab').forEach((t) => t.addEventListener('click', () => showView(t.dataset.view)));
@@ -710,6 +730,7 @@
     $('#btn-menu').addEventListener('click', () => openMenu(true));
     $('#btn-menu-close').addEventListener('click', () => openMenu(false));
     $('#menu-backdrop').addEventListener('click', (e) => { if (e.target.id === 'menu-backdrop') openMenu(false); });
+    $('#btn-reload').addEventListener('click', reloadApp);
     $('#btn-export').addEventListener('click', exportBackup);
     $('#btn-import').addEventListener('click', () => $('#import-file').click());
     $('#import-file').addEventListener('change', (e) => { if (e.target.files[0]) importBackup(e.target.files[0]); openMenu(false); });
