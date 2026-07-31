@@ -9,6 +9,9 @@ TM.MapView = class {
     this.PRIV = (css.getPropertyValue('--priv').trim() || '#d8dce3');
     this.ready = false;
     this._pending = null;
+    this._onPoint = null;
+    this._withLabels = true;  // eigene Ortslabels (Vektor-Style hat Glyphen)
+    this._fellBack = false;
 
     this.map = new maplibregl.Map({
       container: el,
@@ -19,10 +22,47 @@ TM.MapView = class {
       dragRotate: false,
       pitchWithRotate: false,
     });
-    this.map.on('load', () => {
-      this._initLayers();
+    // Layer initialisieren, sobald der Style geladen ist (nicht auf 'load' warten —
+    // das feuert erst, wenn alle Kacheln fertig sind, was bei langsamem Netz hängen kann).
+    // Robust: bei jedem styledata versuchen zu initialisieren; solange der Style
+    // noch nicht bereit ist, wirft addSource und wir versuchen es beim nächsten Event.
+    const tryInit = () => {
+      if (this.ready) return;
+      try { this._initLayers(this._withLabels); } catch (e) { return; }
       this.ready = true;
+      clearTimeout(this._fbTimer);
       if (this._pending) { this.setData(this._pending[0], this._pending[1]); this._pending = null; }
+    };
+    this.map.on('load', tryInit);
+    this.map.on('styledata', tryInit);
+    // Falls OpenFreeMap nicht lädt (Ausfall/Überlast) -> auf CARTO dark umschalten.
+    this.map.on('error', () => { if (!this.ready) this._fallback(); });
+    this._fbTimer = setTimeout(() => { if (!this.ready) this._fallback(); }, 7000);
+  }
+
+  _fallback() {
+    if (this._fellBack) return;
+    this._fellBack = true;
+    this._withLabels = false; // Raster-Kacheln haben Beschriftung schon eingebrannt
+    this.ready = false;
+    this.map.setStyle({
+      version: 8,
+      sources: {
+        carto: {
+          type: 'raster',
+          tiles: [
+            'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+            'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+            'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png',
+          ],
+          tileSize: 256,
+          attribution: '© OpenStreetMap, © CARTO',
+        },
+      },
+      layers: [
+        { id: 'bg', type: 'background', paint: { 'background-color': '#0b0d10' } },
+        { id: 'carto', type: 'raster', source: 'carto' },
+      ],
     });
   }
 
@@ -50,25 +90,28 @@ TM.MapView = class {
     return this._fc(points.map((p) => ({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
-      properties: { label: p.label || '', count: p.count || 0, isHome: !!p.isHome, dom: (p.private > p.business) ? 'private' : 'business' },
+      properties: { key: p.key || '', label: p.label || '', count: p.count || 0, isHome: !!p.isHome, dom: (p.private > p.business) ? 'private' : 'business' },
     })));
   }
   _legsFC(legs) {
     return this._fc(legs.map((l) => ({
       type: 'Feature',
       geometry: { type: 'LineString', coordinates: this._gc([l.startLng, l.startLat], [l.endLng, l.endLat], 48) },
-      properties: { category: l.category || 'business', kind: l.kind || 'spoke' },
+      properties: { category: l.category || 'business', kind: l.kind || 'spoke', mode: l.mode || 'car' },
     })));
   }
 
-  _initLayers() {
+  _initLayers(withLabels) {
     const m = this.map, BIZ = this.BIZ, PRIV = this.PRIV;
+    if (m.getSource('tm-routes')) return; // schon initialisiert
     const catColor = ['case', ['==', ['get', 'category'], 'private'], PRIV, BIZ];
     m.addSource('tm-routes', { type: 'geojson', data: this._fc([]) });
     m.addSource('tm-points', { type: 'geojson', data: this._fc([]) });
 
     m.addLayer({ id: 'tm-routes-glow', type: 'line', source: 'tm-routes', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': catColor, 'line-width': 6, 'line-blur': 6, 'line-opacity': 0.3 } });
-    m.addLayer({ id: 'tm-routes-core', type: 'line', source: 'tm-routes', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': catColor, 'line-width': 1.6, 'line-opacity': 0.9 } });
+    // Auto = durchgezogen, Flug = gestrichelt
+    m.addLayer({ id: 'tm-routes-car', type: 'line', source: 'tm-routes', filter: ['!=', ['get', 'mode'], 'flight'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': catColor, 'line-width': 1.8, 'line-opacity': 0.95 } });
+    m.addLayer({ id: 'tm-routes-flight', type: 'line', source: 'tm-routes', filter: ['==', ['get', 'mode'], 'flight'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': catColor, 'line-width': 1.6, 'line-opacity': 0.95, 'line-dasharray': [1.6, 1.6] } });
 
     m.addLayer({
       id: 'tm-points-circle', type: 'circle', source: 'tm-points',
@@ -78,12 +121,23 @@ TM.MapView = class {
         'circle-stroke-width': 1.2, 'circle-stroke-color': 'rgba(8,10,14,0.7)',
       },
     });
-    m.addLayer({
-      id: 'tm-points-label', type: 'symbol', source: 'tm-points',
-      layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 12, 'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-optional': true, 'text-allow-overlap': false },
-      paint: { 'text-color': '#eceef2', 'text-halo-color': 'rgba(8,10,14,0.9)', 'text-halo-width': 1.3 },
+    if (withLabels !== false) {
+      m.addLayer({
+        id: 'tm-points-label', type: 'symbol', source: 'tm-points',
+        layout: { 'text-field': ['get', 'label'], 'text-font': ['Noto Sans Regular'], 'text-size': 12, 'text-offset': [0, 1.2], 'text-anchor': 'top', 'text-optional': true, 'text-allow-overlap': false },
+        paint: { 'text-color': '#eceef2', 'text-halo-color': 'rgba(8,10,14,0.9)', 'text-halo-width': 1.3 },
+      });
+    }
+    // Pin antippen -> Detail
+    m.on('click', 'tm-points-circle', (e) => {
+      const f = e.features && e.features[0];
+      if (f && !f.properties.isHome && this._onPoint) this._onPoint(f.properties);
     });
+    m.on('mouseenter', 'tm-points-circle', () => { m.getCanvas().style.cursor = 'pointer'; });
+    m.on('mouseleave', 'tm-points-circle', () => { m.getCanvas().style.cursor = ''; });
   }
+
+  onPoint(fn) { this._onPoint = fn; }
 
   setData(points, legs) {
     if (!this.ready) { this._pending = [points, legs]; return; }

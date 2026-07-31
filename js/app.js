@@ -137,7 +137,7 @@
     $('#globe').hidden = showMap;
     $('#map').hidden = !showMap;
     if (showMap) {
-      if (!state.mapView && window.maplibregl) state.mapView = new TM.MapView($('#map'));
+      if (!state.mapView && window.maplibregl) { state.mapView = new TM.MapView($('#map')); state.mapView.onPoint(openPlace); }
       render();
       setTimeout(() => { if (state.mapView) state.mapView.resize(); }, 80);
     } else if (state.globe) {
@@ -243,6 +243,7 @@
     $('#photo-preview').hidden = true;
     $('#photo-img').removeAttribute('src');
     setCat('business');
+    setMode('car');
     setWhen('point');
   }
   function resetCheckinForm() {
@@ -316,6 +317,15 @@
   }
   function getCat() { return $('#cat-seg').dataset.value || 'business'; }
 
+  function setMode(mode) {
+    $$('#mode-transport .seg').forEach((b) => b.classList.toggle('is-active', b.dataset.mode === mode));
+    $('#mode-transport').dataset.value = mode;
+  }
+  function getMode() { return $('#mode-transport').dataset.value || 'car'; }
+  // generisches Segmented-Control-Helferlein (für Edit-Sheet)
+  function setSeg(sel, attr, val) { $$(sel + ' .seg').forEach((b) => b.classList.toggle('is-active', b.dataset[attr] === val)); $(sel).dataset.value = val; }
+  function getSeg(sel, def) { return $(sel).dataset.value || def; }
+
   function showPicked(loc) {
     state.pending = loc;
     const now = loc.ts || Date.now();
@@ -325,6 +335,9 @@
     $('#loc-from').value = day;
     $('#loc-to').value = day;
     setWhen('point');
+    // Vorschlag: weit weg -> Flug, sonst Auto
+    const km = TM.geo.haversine(state.home, { lat: loc.lat, lon: loc.lon });
+    setMode(km > 700 ? 'flight' : 'car');
     $('#picked').hidden = false;
     $('#picked').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -400,6 +413,7 @@
       label,
       note: $('#loc-note').value.trim(),
       category: getCat(),
+      mode: getMode(),
       hasPhoto: !!state.pendingPhoto,
     };
     await TM.db.putCheckin(c);
@@ -501,6 +515,87 @@
   }
   async function dataURLToBlob(u) { return (await fetch(u)).blob(); }
 
+  // ---------- Ort-Detail (Pin angetippt) ----------
+  async function openPlace(pt) {
+    if (!pt || !pt.key) return;
+    state._placePt = pt;
+    const visits = state.all.filter((c) => TM.stats.pkey(c) === pt.key).sort((a, b) => b.ts - a.ts);
+    if (!visits.length) { $('#place-backdrop').hidden = true; return; }
+    const first = visits[0];
+    const tb = tripsById();
+    $('#place-title').innerHTML = `${TM.geo.flag(first.cc)} ${escapeHtml(first.city || first.label)} · ${visits.length}×`;
+    const box = $('#place-visits');
+    box.innerHTML = visits.map((c) => `
+      <button class="visit" data-edit="${c.id}">
+        <div class="v-thumb placeholder" data-ph="${c.id}">${c.mode === 'flight' ? '✈️' : '🚗'}</div>
+        <div class="v-body">
+          <div class="v-when">${c.dreh ? '🎬 ' : ''}${fmtWhen(c)}</div>
+          <div class="v-meta"><span class="tag ${c.category}">${c.category === 'private' ? 'Privat' : 'Business'}</span>${c.tripId && tb[c.tripId] ? '<span>🧭 ' + escapeHtml(tb[c.tripId].name) + '</span>' : ''}</div>
+          ${c.note ? `<div class="v-note">${escapeHtml(c.note)}</div>` : ''}
+        </div>
+        <span class="v-edit">✏️</span>
+      </button>`).join('');
+    $('#place-backdrop').hidden = false;
+    for (const c of visits) {
+      if (!c.hasPhoto) continue;
+      const blob = await TM.db.getPhoto(c.id); if (!blob) continue;
+      const url = URL.createObjectURL(blob);
+      const ph = box.querySelector(`[data-ph="${c.id}"]`);
+      if (ph) ph.outerHTML = `<img class="v-thumb" src="${url}" alt="">`;
+    }
+  }
+
+  // ---------- Check-in bearbeiten ----------
+  let editingId = null;
+  function openEdit(id) {
+    const c = state.all.find((x) => x.id === id); if (!c) return;
+    editingId = id;
+    $('#edit-label').value = c.label || '';
+    $('#edit-date').value = toLocalInput(c.ts);
+    setSeg('#edit-cat', 'cat', c.category || 'business');
+    setSeg('#edit-mode', 'mode', c.mode === 'flight' ? 'flight' : 'car');
+    $('#edit-note').value = c.note || '';
+    const sel = $('#edit-trip');
+    const opts = ['<option value="">Einzeln (Daytrip)</option>'];
+    for (const t of state.trips) opts.push(`<option value="${t.id}">${escapeHtml(t.name)}</option>`);
+    opts.push('<option value="__new">+ Neue Reise…</option>');
+    sel.innerHTML = opts.join('');
+    sel.value = c.tripId && state.trips.some((t) => t.id === c.tripId) ? c.tripId : '';
+    $('#edit-backdrop').hidden = false;
+  }
+  async function saveEdit() {
+    const c = state.all.find((x) => x.id === editingId); if (!c) return;
+    c.label = $('#edit-label').value.trim() || c.label;
+    c.city = c.label.split(',')[0].trim() || c.city;
+    c.ts = new Date($('#edit-date').value || c.ts).getTime();
+    c.category = getSeg('#edit-cat', 'business');
+    c.mode = getSeg('#edit-mode', 'car');
+    c.note = $('#edit-note').value.trim();
+    let tripSel = $('#edit-trip').value;
+    if (tripSel === '__new') {
+      const name = (window.prompt('Name der Reise?') || '').trim();
+      if (name) { const id = crypto.randomUUID ? crypto.randomUUID() : 'trip-' + Date.now(); const trip = { id, name, fromHome: false }; await TM.db.putTrip(trip); state.trips.push(trip); tripSel = id; }
+      else tripSel = '';
+    }
+    c.tripId = tripSel || null;
+    await TM.db.putCheckin(c);
+    state.all = await TM.db.allCheckins();
+    rebuildPeriodSelects(); render(); renderList();
+    $('#edit-backdrop').hidden = true;
+    if (!$('#place-backdrop').hidden && state._placePt) openPlace(state._placePt);
+    toast('Gespeichert ✓');
+  }
+  async function deleteEdit() {
+    if (!editingId) return;
+    if (!confirm('Diesen Check-in löschen?')) return;
+    await TM.db.deleteCheckin(editingId);
+    state.all = await TM.db.allCheckins();
+    rebuildPeriodSelects(); render(); renderList();
+    $('#edit-backdrop').hidden = true;
+    if (!$('#place-backdrop').hidden && state._placePt) openPlace(state._placePt);
+    toast('Gelöscht');
+  }
+
   // ---------- Speicher / Persistenz ----------
   async function ensurePersistence() {
     try {
@@ -582,6 +677,21 @@
     $$('#cat-seg .seg').forEach((b) => b.addEventListener('click', () => setCat(b.dataset.cat)));
     // Zeitpunkt / Zeitraum
     $$('#when-seg .seg').forEach((b) => b.addEventListener('click', () => setWhen(b.dataset.when)));
+    // Auto / Flug
+    $$('#mode-transport .seg').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+    // Bearbeiten-Sheet
+    $$('#edit-cat .seg').forEach((b) => b.addEventListener('click', () => setSeg('#edit-cat', 'cat', b.dataset.cat)));
+    $$('#edit-mode .seg').forEach((b) => b.addEventListener('click', () => setSeg('#edit-mode', 'mode', b.dataset.mode)));
+    $('#edit-save').addEventListener('click', saveEdit);
+    $('#edit-delete').addEventListener('click', deleteEdit);
+    $('#edit-close').addEventListener('click', () => { $('#edit-backdrop').hidden = true; });
+    $('#edit-backdrop').addEventListener('click', (e) => { if (e.target.id === 'edit-backdrop') $('#edit-backdrop').hidden = true; });
+
+    // Ort-Detail-Sheet
+    $('#place-close').addEventListener('click', () => { $('#place-backdrop').hidden = true; });
+    $('#place-backdrop').addEventListener('click', (e) => { if (e.target.id === 'place-backdrop') $('#place-backdrop').hidden = true; });
+    $('#place-visits').addEventListener('click', (e) => { const b = e.target.closest('.visit'); if (b && b.dataset.edit) openEdit(b.dataset.edit); });
 
     // Foto
     $('#btn-photo').addEventListener('click', () => $('#loc-photo').click());
@@ -609,14 +719,19 @@
       if ($('#view-review').classList.contains('is-active')) renderReview();
     });
 
-    // Liste: löschen
+    // Liste: Zeile antippen = bearbeiten, Papierkorb = löschen
     $('#checkin-list').addEventListener('click', async (e) => {
-      const id = e.target.dataset && e.target.dataset.del; if (!id) return;
-      if (!confirm('Diesen Check-in löschen?')) return;
-      await TM.db.deleteCheckin(id);
-      state.all = await TM.db.allCheckins();
-      rebuildPeriodSelects(); render(); renderList();
-      toast('Gelöscht');
+      const id = e.target.dataset && e.target.dataset.del;
+      if (id) {
+        if (!confirm('Diesen Check-in löschen?')) return;
+        await TM.db.deleteCheckin(id);
+        state.all = await TM.db.allCheckins();
+        rebuildPeriodSelects(); render(); renderList();
+        toast('Gelöscht');
+        return;
+      }
+      const row = e.target.closest('.ci');
+      if (row && row.dataset.id) openEdit(row.dataset.id);
     });
   }
 
@@ -644,6 +759,7 @@
     wire();
     await ensurePersistence();
     state.globe = new TM.GlobeView($('#globe'));
+    state.globe.onPoint(openPlace);
     state.gapHours = await TM.db.getSetting('gapHours', 48);
     $('#gap-select').value = String(state.gapHours);
     state.all = await TM.db.allCheckins();

@@ -148,6 +148,11 @@
           <button class="seg" data-cat="private">Privat</button>
         </div>
 
+        <div class="segmented cat" id="mode-transport">
+          <button class="seg is-active" data-mode="car">🚗 Auto</button>
+          <button class="seg" data-mode="flight">✈️ Flug</button>
+        </div>
+
         <div class="form-card">
           <textarea class="inline-field area" id="loc-note" rows="2" placeholder="Notiz (optional)"></textarea>
         </div>
@@ -198,6 +203,45 @@
         </select>
       </div>
       <button class="sheet-btn cancel" id="btn-menu-close">Schließen</button>
+    </div>
+  </div>
+
+  <!-- Ort-Detail (Pin angetippt) -->
+  <div class="sheet-backdrop" id="place-backdrop" hidden>
+    <div class="sheet" id="place-sheet">
+      <div class="sheet-handle"></div>
+      <h3 id="place-title">Ort</h3>
+      <div class="place-visits" id="place-visits"></div>
+      <button class="sheet-btn cancel" id="place-close">Schließen</button>
+    </div>
+  </div>
+
+  <!-- Check-in bearbeiten -->
+  <div class="sheet-backdrop" id="edit-backdrop" hidden>
+    <div class="sheet" id="edit-sheet">
+      <div class="sheet-handle"></div>
+      <h3>Check-in bearbeiten</h3>
+      <div class="form-card">
+        <div class="row"><label>Ort</label><input class="inline-field" id="edit-label" type="text"></div>
+        <div class="row"><label>Zeitpunkt</label><input class="inline-field" id="edit-date" type="datetime-local"></div>
+      </div>
+      <div class="segmented cat" id="edit-cat">
+        <button class="seg" data-cat="business">Business</button>
+        <button class="seg" data-cat="private">Privat</button>
+      </div>
+      <div class="segmented cat" id="edit-mode">
+        <button class="seg" data-mode="car">🚗 Auto</button>
+        <button class="seg" data-mode="flight">✈️ Flug</button>
+      </div>
+      <div class="form-card">
+        <div class="row"><label>Reise</label><select class="inline-field" id="edit-trip"></select></div>
+      </div>
+      <div class="form-card">
+        <textarea class="inline-field area" id="edit-note" rows="2" placeholder="Notiz"></textarea>
+      </div>
+      <button class="cta" id="edit-save">Speichern</button>
+      <button class="sheet-btn danger" id="edit-delete">Löschen</button>
+      <button class="sheet-btn cancel" id="edit-close">Abbrechen</button>
     </div>
   </div>
 

@@ -112,8 +112,8 @@ TM.stats = (function () {
     for (const c of list) {
       const k = pkey(c);
       let e = m.get(k);
-      if (!e) { e = { key: k, lat: c.lat, lon: c.lon, label: c.city || c.label, cc: c.cc, count: 0, business: 0, private: 0 }; m.set(k, e); }
-      e.count++; e[c.category] = (e[c.category] || 0) + 1;
+      if (!e) { e = { key: k, lat: c.lat, lon: c.lon, label: c.city || c.label, cc: c.cc, count: 0, business: 0, private: 0, car: 0, flight: 0 }; m.set(k, e); }
+      e.count++; e[c.category] = (e[c.category] || 0) + 1; e[c.mode === 'flight' ? 'flight' : 'car']++;
       e.lat = c.lat; e.lon = c.lon;
     }
     return [...m.values()];
@@ -132,14 +132,14 @@ TM.stats = (function () {
       const hk = pkey(home);
       for (const p of points(standalone)) {
         if (p.key === hk) continue;
-        out.push({ startLat: home.lat, startLng: home.lon, endLat: p.lat, endLng: p.lon, count: p.count, category: p.private > p.business ? 'private' : 'business', kind: 'spoke' });
+        out.push({ startLat: home.lat, startLng: home.lon, endLat: p.lat, endLng: p.lon, count: p.count, category: p.private > p.business ? 'private' : 'business', mode: p.flight > p.car ? 'flight' : 'car', dist: H(home, p), kind: 'spoke' });
       }
     } else {
       const sorted = [...standalone].sort((a, b) => a.ts - b.ts);
       for (let i = 1; i < sorted.length; i++) {
         const a = sorted[i - 1], b = sorted[i];
         if (pkey(a) === pkey(b)) continue;
-        out.push({ startLat: a.lat, startLng: a.lon, endLat: b.lat, endLng: b.lon, count: 1, category: b.category, kind: 'spoke' });
+        out.push({ startLat: a.lat, startLng: a.lon, endLat: b.lat, endLng: b.lon, count: 1, category: b.category, mode: b.mode === 'flight' ? 'flight' : 'car', dist: H(a, b), kind: 'spoke' });
       }
     }
     // Multiday-Reisen: Kette der eigenen Pins (optional mit Home-Enden)
@@ -148,10 +148,11 @@ TM.stats = (function () {
       const sorted = [...items].sort((a, b) => a.ts - b.ts);
       const seq = [];
       for (const c of sorted) { if (!seq.length || pkey(seq[seq.length - 1]) !== pkey(c)) seq.push(c); }
-      let chain = seq.map((c) => ({ lat: c.lat, lon: c.lon, category: c.category }));
+      let chain = seq.map((c) => ({ lat: c.lat, lon: c.lon, category: c.category, mode: c.mode }));
       if (trip && trip.fromHome && home) chain = [{ lat: home.lat, lon: home.lon }, ...chain, { lat: home.lat, lon: home.lon }];
       for (let i = 1; i < chain.length; i++) {
-        out.push({ startLat: chain[i - 1].lat, startLng: chain[i - 1].lon, endLat: chain[i].lat, endLng: chain[i].lon, count: 1, category: chain[i].category || chain[i - 1].category || 'private', kind: 'trip' });
+        const a = chain[i - 1], b = chain[i];
+        out.push({ startLat: a.lat, startLng: a.lon, endLat: b.lat, endLng: b.lon, count: 1, category: b.category || a.category || 'private', mode: (b.mode || a.mode) === 'flight' ? 'flight' : 'car', dist: H(a, b), kind: 'trip' });
       }
     }
     return out;

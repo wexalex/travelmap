@@ -3,6 +3,7 @@ window.TM = window.TM || {};
 TM.GlobeView = class {
   constructor(el) {
     this.el = el;
+    this._onPoint = null;
     const css = getComputedStyle(document.documentElement);
     const biz = (css.getPropertyValue('--biz').trim() || '#7ea6c9');
     const priv = (css.getPropertyValue('--priv').trim() || '#d8dce3');
@@ -21,13 +22,16 @@ TM.GlobeView = class {
       .pointRadius((d) => (d.isHome ? 0.55 : 0.24 + Math.min(d.count, 12) * 0.045))
       .pointColor((d) => (d.isHome ? '#ffffff' : this.dotColor(d)))
       .pointLabel((d) => `<div class="glabel">${d.isHome ? '🏠 ' + d.label + ' · Homebase' : d.label + ' · ' + d.count + '×'}</div>`)
+      .onPointClick((d) => { if (this._onPoint && d && !d.isHome) this._onPoint(d); })
       .arcsData([]).arcStartLat('startLat').arcStartLng('startLng').arcEndLat('endLat').arcEndLng('endLng')
       .arcColor((d) => this.colorPair(d.category))
       .arcStroke((d) => 0.32 + Math.min(d.count, 8) * 0.12)
-      .arcAltitudeAutoScale(0.45)
-      .arcDashLength(0.45).arcDashGap(0.22)
+      // Flug = hoher Bogen (mit fließenden Strichen), Auto = flache Bodenlinie (durchgezogen)
+      .arcAltitude((d) => (d.mode === 'flight' ? Math.min(0.5, 0.08 + (d.dist || 0) / 16000) : 0.004))
+      .arcDashLength((d) => (d.mode === 'flight' ? 0.45 : 1))
+      .arcDashGap((d) => (d.mode === 'flight' ? 0.22 : 0))
       .arcDashInitialGap(() => Math.random())
-      .arcDashAnimateTime(2600)
+      .arcDashAnimateTime((d) => (d.mode === 'flight' ? 2600 : 0))
       .arcsTransitionDuration(300)
       .ringsData([]).ringLat('lat').ringLng('lon')
       .ringColor(() => (t) => `rgba(126,166,201,${1 - t})`)
@@ -47,6 +51,8 @@ TM.GlobeView = class {
     this.resize();
     this.g.pointOfView({ lat: 48, lng: 12, altitude: 1.8 }, 0); // Europa-Fokus
   }
+
+  onPoint(fn) { this._onPoint = fn; }
 
   resize() {
     this.g.width(this.el.clientWidth || window.innerWidth);
