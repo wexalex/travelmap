@@ -1,5 +1,5 @@
 /* Service Worker — App komplett offline nutzbar (Karten-Geocoding braucht Netz). */
-const CACHE = 'travelmap-v19';
+const CACHE = 'travelmap-v20';
 const ASSETS = [
   './',
   'index.html',

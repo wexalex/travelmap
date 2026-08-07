@@ -36,9 +36,17 @@ TM.GlobeView = class {
       .ringsData([]).ringLat('lat').ringLng('lon')
       .ringColor(() => (t) => `rgba(126,166,201,${1 - t})`)
       .ringMaxRadius(3.2).ringPropagationSpeed(1.6).ringRepeatPeriod(1400)
-      .labelsData([]).labelLat('lat').labelLng('lon').labelText('label')
-      .labelSize(0.85).labelDotRadius(0.26).labelResolution(2)
-      .labelColor(() => 'rgba(242,243,245,0.82)');
+      // Labels als HTML (gestochen scharf bei jedem Zoom, statt unscharfer Bitmap-Sprites)
+      .htmlElementsData([]).htmlLat('lat').htmlLng('lon').htmlAltitude(0.02)
+      .htmlElement((d) => {
+        const w = document.createElement('div');
+        w.className = 'glabel-wrap';
+        const s = document.createElement('span');
+        s.className = 'glabel-text' + (d.isHome ? ' home' : '');
+        s.textContent = d.isHome ? '🏠 ' + d.label : d.label;
+        w.appendChild(s);
+        return w;
+      });
 
     const c = this.g.controls();
     c.autoRotate = true; c.autoRotateSpeed = 0.42; c.enableZoom = true;
@@ -68,7 +76,7 @@ TM.GlobeView = class {
     if (!top.length) top = sorted.slice(0, 5);
     const labels = home ? [home, ...top] : top;
     const rings = home ? [home] : rest.filter((p) => p.count >= 3);
-    this.g.pointsData(points).arcsData(legs).ringsData(rings).labelsData(labels);
+    this.g.pointsData(points).arcsData(legs).ringsData(rings).htmlElementsData(labels);
   }
 
   focus(lat, lon, ms) {
