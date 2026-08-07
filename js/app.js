@@ -162,7 +162,7 @@
     grid.innerHTML = stamps.map((st, i) => {
       const ink = inks[i % inks.length];
       const rot = ((i * 37) % 9) - 4;
-      return `<div class="stamp" style="--ink:${ink};--rot:${rot}deg">
+      return `<div class="stamp" data-key="${escapeHtml(st.key)}" style="--ink:${ink};--rot:${rot}deg">
         <span class="ring"></span><span class="ring dashed"></span>
         <span class="count">${st.count}×</span>
         <span class="emoji">${st.icon}</span>
@@ -373,8 +373,9 @@
     }, 450);
   }
 
+  let _saving = false;
   async function save() {
-    if (!state.pending) return;
+    if (!state.pending || _saving) return;
     const label = $('#loc-label').value.trim() || state.pending.label;
     let ts, tsEnd = null;
     if (getWhen() === 'range') {
@@ -387,6 +388,8 @@
       ts = new Date($('#loc-date').value || Date.now()).getTime();
     }
     // Multiday-Reise: Trip anlegen/wählen
+    _saving = true; const _btn = $('#btn-save'); _btn.disabled = true;
+    try {
     let tripId = null;
     const multi = getTripType() === 'multi';
     if (multi) {
@@ -437,6 +440,7 @@
       if (state.mapView && state.currentMap === 'map') state.mapView.focus(c.lat, c.lon);
       toast('Check-in gespeichert ✓');
     }
+    } finally { _saving = false; _btn.disabled = false; }
   }
 
   // ---------- Foto ----------
@@ -452,11 +456,18 @@
   }
 
   // ---------- Rückblick teilen ----------
+  // Das Teil-Bild wird deterministisch in 2D gezeichnet (TM.share.build), nicht
+  // vom WebGL-Globus abgegriffen — dadurch nie leer und unabhängig vom Ansichts-Zustand.
   async function shareImage() {
-    if (!currentList().length) { toast('Keine Daten in diesem Zeitraum'); return; }
+    const list = currentList();
+    if (!list.length) { toast('Keine Daten in diesem Zeitraum'); return; }
     toast('Bild wird erstellt…');
-    await new Promise((r) => setTimeout(r, 250)); // Globus rendern lassen
-    const s = TM.stats.summary(currentList(), state.home, state.gapHours, tripsById());
+    const tb = tripsById();
+    const s = TM.stats.summary(list, state.home, state.gapHours, tb);
+    const rawPts = TM.stats.points(list);
+    const points = [{ lat: state.home.lat, lon: state.home.lon, isHome: true, count: 0, dom: 'business' }]
+      .concat(rawPts.map((p) => ({ lat: p.lat, lon: p.lon, count: p.count, dom: (p.private > p.business ? 'private' : 'business') })));
+    const legs = TM.stats.legs(list, state.home, tb);
     const info = {
       title: periodLabel(),
       subtitle: state.filter.category === 'business' ? 'Business' : state.filter.category === 'private' ? 'Privat' : 'Meine Reisen',
@@ -468,7 +479,7 @@
       ],
     };
     try {
-      const blob = await TM.share.build(state.globe, info);
+      const blob = await TM.share.build({ points, legs }, info);
       const fname = 'travelmap-' + encodePeriod().replace(/:/g, '-') + '.png';
       const r = await TM.share.shareOrDownload(blob, fname);
       if (r === 'downloaded') toast('Bild gespeichert ✓');
@@ -558,7 +569,6 @@
     const sel = $('#edit-trip');
     const opts = ['<option value="">Einzeln (Daytrip)</option>'];
     for (const t of state.trips) opts.push(`<option value="${t.id}">${escapeHtml(t.name)}</option>`);
-    opts.push('<option value="__new">+ Neue Reise…</option>');
     sel.innerHTML = opts.join('');
     sel.value = c.tripId && state.trips.some((t) => t.id === c.tripId) ? c.tripId : '';
     $('#edit-backdrop').hidden = false;
@@ -571,13 +581,7 @@
     c.category = getSeg('#edit-cat', 'business');
     c.mode = getSeg('#edit-mode', 'car');
     c.note = $('#edit-note').value.trim();
-    let tripSel = $('#edit-trip').value;
-    if (tripSel === '__new') {
-      const name = (window.prompt('Name der Reise?') || '').trim();
-      if (name) { const id = crypto.randomUUID ? crypto.randomUUID() : 'trip-' + Date.now(); const trip = { id, name, fromHome: false }; await TM.db.putTrip(trip); state.trips.push(trip); tripSel = id; }
-      else tripSel = '';
-    }
-    c.tripId = tripSel || null;
+    c.tripId = $('#edit-trip').value || null;
     await TM.db.putCheckin(c);
     state.all = await TM.db.allCheckins();
     rebuildPeriodSelects(); render(); renderList();
@@ -719,6 +723,12 @@
 
     $('#btn-save').addEventListener('click', save);
     $('#btn-share').addEventListener('click', shareImage);
+
+    // Pass: Stempel antippen -> Ort-Detail
+    $('#stamp-grid').addEventListener('click', (e) => {
+      const s = e.target.closest('.stamp');
+      if (s && s.dataset.key) openPlace({ key: s.dataset.key });
+    });
 
     // Rückblick: Stopp zu bestehender Reise hinzufügen
     $('#trip-list').addEventListener('click', (e) => {

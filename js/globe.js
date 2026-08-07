@@ -12,7 +12,7 @@ TM.GlobeView = class {
 
     this.g = new Globe(el, { rendererConfig: { antialias: true, alpha: true, preserveDrawingBuffer: true } })
       .backgroundColor('rgba(0,0,0,0)')
-      .globeImageUrl('assets/earth-dark.jpg')
+      .globeImageUrl('assets/earth-dark-hi.jpg')
       .bumpImageUrl('assets/earth-topology.png')
       .showAtmosphere(true)
       .atmosphereColor('#43607f')

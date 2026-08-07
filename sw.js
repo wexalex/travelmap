@@ -1,5 +1,5 @@
 /* Service Worker — App komplett offline nutzbar (Karten-Geocoding braucht Netz). */
-const CACHE = 'travelmap-v12';
+const CACHE = 'travelmap-v19';
 const ASSETS = [
   './',
   'index.html',
@@ -14,7 +14,7 @@ const ASSETS = [
   'vendor/globe.gl.min.js',
   'vendor/maplibre-gl.js',
   'vendor/maplibre-gl.css',
-  'assets/earth-dark.jpg',
+  'assets/earth-dark-hi.jpg',
   'assets/earth-topology.png',
   'manifest.webmanifest',
   'icons/icon-192.png',

@@ -38,6 +38,15 @@ TM.MapView = class {
     // Falls OpenFreeMap nicht lädt (Ausfall/Überlast) -> auf CARTO dark umschalten.
     this.map.on('error', () => { if (!this.ready) this._fallback(); });
     this._fbTimer = setTimeout(() => { if (!this.ready) this._fallback(); }, 7000);
+
+    // Lade-Overlay, bis die ersten Kacheln da sind (sonst kurz nur schwarz)
+    const loader = document.createElement('div');
+    loader.className = 'map-loading';
+    loader.textContent = 'Karte lädt…';
+    el.appendChild(loader);
+    const hideLoader = () => loader.remove();
+    this.map.on('idle', hideLoader);
+    setTimeout(hideLoader, 9000); // Sicherheits-Fallback
   }
 
   _fallback() {
