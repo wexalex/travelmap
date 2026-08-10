@@ -10,6 +10,12 @@ TM.GlobeView = class {
     this.colorPair = (cat) => (cat === 'private' ? [priv, priv] : [biz, biz]);
     this.dotColor = (p) => (p.private > p.business ? priv : biz);
 
+    // Zoom-Skalierung: Punkte/Bögen/Ringe behalten beim Zoomen ~konstante Bildschirmgröße
+    // (sonst werden sie beim Reinzoomen zu riesigen Blobs).
+    this._k = 1;
+    this._pr = (d) => (d.isHome ? 0.5 : 0.2 + Math.min(d.count, 12) * 0.03) * this._k;
+    this._as = (d) => (0.28 + Math.min(d.count, 8) * 0.1) * this._k;
+
     this.g = new Globe(el, { rendererConfig: { antialias: true, alpha: true, preserveDrawingBuffer: true } })
       .backgroundColor('rgba(0,0,0,0)')
       .globeImageUrl('assets/earth-dark-hi.jpg')
@@ -19,20 +25,21 @@ TM.GlobeView = class {
       .atmosphereAltitude(0.15)
       .pointsData([]).pointLat('lat').pointLng('lon')
       .pointAltitude((d) => (d.isHome ? 0.02 : 0.012))
-      .pointRadius((d) => (d.isHome ? 0.55 : 0.24 + Math.min(d.count, 12) * 0.045))
+      .pointRadius(this._pr)
       .pointColor((d) => (d.isHome ? '#ffffff' : this.dotColor(d)))
-      .pointLabel((d) => `<div class="glabel">${d.isHome ? '🏠 ' + d.label + ' · Homebase' : d.label + ' · ' + d.count + '×'}</div>`)
+      .pointLabel(() => '')
       .onPointClick((d) => { if (this._onPoint && d && !d.isHome) this._onPoint(d); })
       .arcsData([]).arcStartLat('startLat').arcStartLng('startLng').arcEndLat('endLat').arcEndLng('endLng')
       .arcColor((d) => this.colorPair(d.category))
-      .arcStroke((d) => 0.32 + Math.min(d.count, 8) * 0.12)
+      .arcStroke(this._as)
       // Flug = hoher Bogen (mit fließenden Strichen), Auto = flache Bodenlinie (durchgezogen)
       .arcAltitude((d) => (d.mode === 'flight' ? Math.min(0.5, 0.08 + (d.dist || 0) / 16000) : 0.004))
       .arcDashLength((d) => (d.mode === 'flight' ? 0.45 : 1))
       .arcDashGap((d) => (d.mode === 'flight' ? 0.22 : 0))
       .arcDashInitialGap(() => Math.random())
       .arcDashAnimateTime((d) => (d.mode === 'flight' ? 2600 : 0))
-      .arcsTransitionDuration(300)
+      .arcsTransitionDuration(0)
+      .pointsTransitionDuration(0)
       .ringsData([]).ringLat('lat').ringLng('lon')
       .ringColor(() => (t) => `rgba(126,166,201,${1 - t})`)
       .ringMaxRadius(3.2).ringPropagationSpeed(1.6).ringRepeatPeriod(1400)
@@ -54,6 +61,7 @@ TM.GlobeView = class {
     c.minDistance = 101;   // sehr nah heranzoombar (Globusradius = 100)
     c.maxDistance = 700;   // nicht ins Leere zoomen
     el.addEventListener('pointerdown', () => { c.autoRotate = false; });
+    c.addEventListener('change', () => this._scheduleScale()); // beim Zoomen Größen anpassen
 
     this.resize = this.resize.bind(this);
     window.addEventListener('resize', this.resize);
@@ -72,6 +80,22 @@ TM.GlobeView = class {
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
+  }
+  // Punkte/Bögen/Ringe an den Zoom anpassen (konstante Bildschirmgröße), damit sie
+  // beim Reinzoomen nicht zu Blobs werden. Erst wenn der Zoom sich beruhigt (debounced),
+  // sonst ständiges Neu-Aufbauen der Geometrie.
+  _scheduleScale() { clearTimeout(this._scaleTimer); this._scaleTimer = setTimeout(() => this._applyScale(), 140); }
+  _applyScale() {
+    if (!this.el) return;
+    const pov = this.g.pointOfView();
+    const alt = (pov && pov.altitude) ? pov.altitude : 1.8;
+    const k = Math.max(0.012, Math.min(2.0, alt / 1.7));
+    if (this._k && Math.abs(k - this._k) / this._k < 0.05) return; // kaum Änderung -> kein Rebuild
+    this._k = k;
+    this.g.pointRadius((d) => this._pr(d)).arcStroke((d) => this._as(d)).ringMaxRadius(Math.max(0.15, 2.6 * k));
+    // Rebuild erzwingen (nur so greift die neue Größe auf bestehende Geometrie)
+    this.g.pointsData(this.g.pointsData());
+    this.g.arcsData(this.g.arcsData());
   }
   _declutter() {
     if (!this.el || this.el.offsetParent === null) return; // Globus nicht sichtbar
