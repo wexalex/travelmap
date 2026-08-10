@@ -44,6 +44,7 @@ TM.GlobeView = class {
         const s = document.createElement('span');
         s.className = 'glabel-text' + (d.isHome ? ' home' : '');
         s.textContent = d.isHome ? '🏠 ' + d.label : d.label;
+        s.dataset.prio = d._prio != null ? d._prio : 99; // für Entzerrung
         w.appendChild(s);
         return w;
       });
@@ -58,9 +59,44 @@ TM.GlobeView = class {
     window.addEventListener('resize', this.resize);
     this.resize();
     this.g.pointOfView({ lat: 48, lng: 12, altitude: 1.8 }, 0); // Europa-Fokus
+    this._startDeclutter();
   }
 
   onPoint(fn) { this._onPoint = fn; }
+
+  // Automatische Entzerrung: überlappende Labels ausblenden (niedrigere Priorität weicht).
+  _startDeclutter() {
+    let last = 0;
+    const loop = (ts) => {
+      if (ts - last > 90) { last = ts; try { this._declutter(); } catch (e) { /* ignore */ } }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }
+  _declutter() {
+    if (!this.el || this.el.offsetParent === null) return; // Globus nicht sichtbar
+    const texts = [...this.el.querySelectorAll('.glabel-text')];
+    if (!texts.length) return;
+    const gr = this.el.getBoundingClientRect();
+    const active = [];
+    for (const t of texts) {
+      const wrap = t.parentElement;
+      const op = wrap ? parseFloat(getComputedStyle(wrap).opacity || '1') : 1;
+      const r = t.getBoundingClientRect();
+      const onScreen = r.width && r.right > gr.left && r.left < gr.right && r.bottom > gr.top && r.top < gr.bottom;
+      if (op >= 0.2 && onScreen) active.push({ t, r, prio: +(t.dataset.prio || 99) });
+    }
+    active.sort((a, b) => a.prio - b.prio);
+    const kept = [], pad = 3, hide = new Set();
+    for (const it of active) {
+      const clash = kept.some((k) => it.r.left < k.right + pad && it.r.right > k.left - pad && it.r.top < k.bottom + pad && it.r.bottom > k.top - pad);
+      if (clash) hide.add(it.t); else kept.push(it.r);
+    }
+    for (const it of active) {
+      const should = hide.has(it.t);
+      if (should !== it.t.classList.contains('label-hidden')) it.t.classList.toggle('label-hidden', should);
+    }
+  }
 
   resize() {
     this.g.width(this.el.clientWidth || window.innerWidth);
@@ -69,12 +105,11 @@ TM.GlobeView = class {
 
   setData(points, legs) {
     const home = points.find((p) => p.isHome);
-    const rest = points.filter((p) => !p.isHome);
-    // Nur Mehrfach-Orte beschriften (sonst überlappen dicht beieinander liegende Orte).
-    const sorted = [...rest].sort((a, b) => b.count - a.count);
-    let top = sorted.filter((p) => p.count >= 2).slice(0, 6);
-    if (!top.length) top = sorted.slice(0, 5);
-    const labels = home ? [home, ...top] : top;
+    const rest = points.filter((p) => !p.isHome).sort((a, b) => b.count - a.count);
+    // Alle Orte beschriften; die Entzerrung (_declutter) blendet Überlappungen aus.
+    // Priorität: Homebase zuerst, dann meistbesucht -> _prio nach Reihenfolge.
+    const labels = home ? [home, ...rest] : rest;
+    labels.forEach((d, i) => { d._prio = i; });
     const rings = home ? [home] : rest.filter((p) => p.count >= 3);
     this.g.pointsData(points).arcsData(legs).ringsData(rings).htmlElementsData(labels);
   }
