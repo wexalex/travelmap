@@ -15,6 +15,8 @@ TM.GlobeView = class {
     this._k = 1;
     this._pr = (d) => (d.isHome ? 0.5 : 0.2 + Math.min(d.count, 12) * 0.03) * this._k;
     this._as = (d) => (0.28 + Math.min(d.count, 8) * 0.1) * this._k;
+    // Bogenhöhe skaliert mit dem Zoom: nah flach (schießt nicht ins Leere), weit gewölbt.
+    this._aa = (d) => (d.mode === 'flight' ? Math.max(0.006, Math.min(0.28, 0.18 * this._k)) : 0.004);
 
     this.g = new Globe(el, { rendererConfig: { antialias: true, alpha: true, preserveDrawingBuffer: true } })
       .backgroundColor('rgba(0,0,0,0)')
@@ -33,7 +35,7 @@ TM.GlobeView = class {
       .arcColor((d) => this.colorPair(d.category))
       .arcStroke(this._as)
       // Flug = hoher Bogen (mit fließenden Strichen), Auto = flache Bodenlinie (durchgezogen)
-      .arcAltitude((d) => (d.mode === 'flight' ? Math.min(0.5, 0.08 + (d.dist || 0) / 16000) : 0.004))
+      .arcAltitude(this._aa)
       .arcDashLength((d) => (d.mode === 'flight' ? 0.45 : 1))
       .arcDashGap((d) => (d.mode === 'flight' ? 0.22 : 0))
       .arcDashInitialGap(() => Math.random())
@@ -92,7 +94,7 @@ TM.GlobeView = class {
     const k = Math.max(0.012, Math.min(2.0, alt / 1.7));
     if (this._k && Math.abs(k - this._k) / this._k < 0.05) return; // kaum Änderung -> kein Rebuild
     this._k = k;
-    this.g.pointRadius((d) => this._pr(d)).arcStroke((d) => this._as(d)).ringMaxRadius(Math.max(0.15, 2.6 * k));
+    this.g.pointRadius((d) => this._pr(d)).arcStroke((d) => this._as(d)).arcAltitude((d) => this._aa(d)).ringMaxRadius(Math.max(0.15, 2.6 * k));
     // Rebuild erzwingen (nur so greift die neue Größe auf bestehende Geometrie)
     this.g.pointsData(this.g.pointsData());
     this.g.arcsData(this.g.arcsData());
