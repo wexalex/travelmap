@@ -1,9 +1,14 @@
 /* Service Worker — App komplett offline nutzbar (Karten-Geocoding braucht Netz). */
-const CACHE = 'travelmap-v27';
+const CACHE = 'travelmap-v28';
 const ASSETS = [
   './',
   'index.html',
   'css/style.css',
+  'assets/fonts/satoshi-300.woff2',
+  'assets/fonts/satoshi-400.woff2',
+  'assets/fonts/satoshi-500.woff2',
+  'assets/fonts/satoshi-700.woff2',
+  'assets/fonts/satoshi-900.woff2',
   'js/db.js',
   'js/geo.js',
   'js/stats.js',

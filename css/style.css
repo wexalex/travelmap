@@ -1,19 +1,26 @@
+/* Satoshi (selbst gehostet, offline-fähig) — Design-Richtung: BYQ „Edge Studio" */
+@font-face{font-family:Satoshi;src:url('../assets/fonts/satoshi-300.woff2') format('woff2');font-weight:300;font-style:normal;font-display:swap}
+@font-face{font-family:Satoshi;src:url('../assets/fonts/satoshi-400.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:Satoshi;src:url('../assets/fonts/satoshi-500.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:Satoshi;src:url('../assets/fonts/satoshi-700.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:Satoshi;src:url('../assets/fonts/satoshi-900.woff2') format('woff2');font-weight:900;font-style:normal;font-display:swap}
+
 :root{
-  /* ---- Dark monochrome + ein dezenter Akzent (leicht austauschbar) ---- */
+  /* ---- Dark monochrome + ein dezenter Akzent (Edge-Studio-Richtung) ---- */
   --accent:#7ea6c9;          /* gedämpftes Blaugrau */
   --accent-press:#6a90b2;
   --biz:#7ea6c9;             /* Business = Akzent */
   --priv:#d8dce3;            /* Privat = neutrales Hellgrau */
 
-  --bg:#0b0c0e;
-  --bg-elev:#16181c;
-  --bg-elev2:#1f2228;
-  --label:#f2f3f5;
-  --label2:#8b8d94;
-  --sep:rgba(255,255,255,0.08);
-  --nav-bg:rgba(18,20,24,0.72);
-  --card-shadow:0 1px 2px rgba(0,0,0,0.5),0 10px 30px rgba(0,0,0,0.35);
-  --globe-bg:radial-gradient(circle at 50% 38%,#15181e 0%,#0b0d10 58%,#060708 100%);
+  --bg:#0e0f12;
+  --bg-elev:#17191e;
+  --bg-elev2:#202329;
+  --label:#f6f7f9;
+  --label2:rgba(255,255,255,0.56);
+  --sep:rgba(255,255,255,0.11);
+  --nav-bg:rgba(20,22,26,0.72);
+  --card-shadow:0 1px 2px rgba(0,0,0,0.5),0 12px 34px rgba(0,0,0,0.42);
+  --globe-bg:radial-gradient(circle at 50% 38%,#16191f 0%,#0c0e11 58%,#060708 100%);
   --stamp-ink:var(--accent);
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
@@ -24,7 +31,7 @@
 html,body{margin:0;height:100%;overflow:hidden}
 body{
   background:var(--bg);color:var(--label);
-  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-family:Satoshi,-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   font-size:17px;line-height:1.4;-webkit-font-smoothing:antialiased;
   letter-spacing:-0.01em;overscroll-behavior:none;
 }
@@ -38,16 +45,16 @@ input,textarea,select{font-family:inherit;font-size:17px;color:var(--label)}
 .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 16px 40px}
 
 .ios-head{padding:calc(var(--safe-top) + 14px) 20px 6px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
-.ios-head h1{font-size:34px;font-weight:800;margin:0;letter-spacing:-0.02em}
+.ios-head h1{font-size:36px;font-weight:600;margin:0;letter-spacing:-0.035em}
 .ios-sub{color:var(--label2);font-size:15px;margin:2px 0 0}
-.group-title{font-size:22px;font-weight:700;margin:26px 4px 12px;letter-spacing:-0.02em}
+.group-title{font-size:22px;font-weight:600;margin:26px 4px 12px;letter-spacing:-0.03em}
 
 /* ===== Globe ===== */
 #view-globe{padding:0}
 .globe-canvas{position:absolute;inset:0;background:var(--globe-bg)}
 .glass-bar{position:absolute;left:0;right:0;z-index:6;display:flex;align-items:center;justify-content:space-between}
 .glass-bar.top{top:0;padding:calc(var(--safe-top) + 10px) 16px 10px}
-.brand{font-weight:800;font-size:20px;letter-spacing:-0.02em}
+.brand{font-weight:600;font-size:20px;letter-spacing:-0.03em}
 .round-btn{width:38px;height:38px;border-radius:50%;padding:8px;background:var(--nav-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);box-shadow:var(--card-shadow)}
 .globe-controls{position:absolute;left:0;right:0;top:calc(var(--safe-top) + 58px);z-index:6;display:flex;gap:8px;padding:0 16px;align-items:center}
 
@@ -72,7 +79,7 @@ input,textarea,select{font-family:inherit;font-size:17px;color:var(--label)}
 
 .stat-pills{position:absolute;left:0;right:0;bottom:16px;z-index:6;display:flex;gap:8px;padding:0 84px 0 16px}
 .stat-pills>div{flex:1;text-align:center;background:var(--nav-bg);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:16px;padding:9px 3px;box-shadow:var(--card-shadow);border:.5px solid var(--sep);min-width:0}
-.stat-pills b{display:block;font-size:19px;font-weight:700;line-height:1.1}
+.stat-pills b{display:block;font-size:21px;font-weight:500;line-height:1.05;letter-spacing:-0.03em}
 .stat-pills span{display:block;font-size:10px;color:var(--label2);font-weight:600;white-space:nowrap}
 .empty-hint{position:absolute;left:0;right:0;bottom:92px;text-align:center;color:var(--label2);z-index:4;font-size:16px;padding:0 30px}
 .plus-inline{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--bg);align-items:center;justify-content:center;font-weight:700;vertical-align:-5px}
@@ -109,7 +116,7 @@ input,textarea,select{font-family:inherit;font-size:17px;color:var(--label)}
 /* ===== Review ===== */
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:8px 0 16px}
 .stat-card{background:var(--bg-elev);border-radius:18px;padding:16px;box-shadow:var(--card-shadow);border:.5px solid var(--sep)}
-.stat-card b{display:block;font-size:30px;font-weight:800;letter-spacing:-0.02em}
+.stat-card b{display:block;font-size:38px;font-weight:300;letter-spacing:-0.035em;line-height:1}
 .stat-card span{font-size:13px;color:var(--label2)}
 .stat-card.wide{grid-column:1/-1}
 .stat-card .sub{font-size:16px;margin-top:4px;font-weight:600}
