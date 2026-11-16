@@ -5,8 +5,8 @@ TM.GlobeView = class {
     this.el = el;
     this._onPoint = null;
     const css = getComputedStyle(document.documentElement);
-    const biz = (css.getPropertyValue('--biz').trim() || '#7ea6c9');
-    const priv = (css.getPropertyValue('--priv').trim() || '#d8dce3');
+    const biz = (css.getPropertyValue('--biz').trim() || '#aeb6c2');
+    const priv = (css.getPropertyValue('--priv').trim() || '#f4f4f6');
     this.colorPair = (cat) => (cat === 'private' ? [priv, priv] : [biz, biz]);
     this.dotColor = (p) => (p.private > p.business ? priv : biz);
 
@@ -23,8 +23,8 @@ TM.GlobeView = class {
       .globeImageUrl('assets/earth-dark-hi.jpg')
       .bumpImageUrl('assets/earth-topology.png')
       .showAtmosphere(true)
-      .atmosphereColor('#43607f')
-      .atmosphereAltitude(0.15)
+      .atmosphereColor('#8b9099')
+      .atmosphereAltitude(0.13)
       .pointsData([]).pointLat('lat').pointLng('lon')
       .pointAltitude((d) => (d.isHome ? 0.02 : 0.012))
       .pointRadius(this._pr)
@@ -43,7 +43,7 @@ TM.GlobeView = class {
       .arcsTransitionDuration(0)
       .pointsTransitionDuration(0)
       .ringsData([]).ringLat('lat').ringLng('lon')
-      .ringColor(() => (t) => `rgba(126,166,201,${1 - t})`)
+      .ringColor(() => (t) => `rgba(220,223,228,${1 - t})`)
       .ringMaxRadius(3.2).ringPropagationSpeed(1.6).ringRepeatPeriod(1400)
       // Labels als HTML (gestochen scharf bei jedem Zoom, statt unscharfer Bitmap-Sprites)
       .htmlElementsData([]).htmlLat('lat').htmlLng('lon').htmlAltitude(0.02)
