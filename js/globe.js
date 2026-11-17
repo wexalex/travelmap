@@ -52,7 +52,7 @@ TM.GlobeView = class {
         w.className = 'glabel-wrap';
         const s = document.createElement('span');
         s.className = 'glabel-text' + (d.isHome ? ' home' : '');
-        s.textContent = d.isHome ? '🏠 ' + d.label : d.label;
+        s.textContent = d.label;
         s.dataset.prio = d._prio != null ? d._prio : 99; // für Entzerrung
         w.appendChild(s);
         return w;

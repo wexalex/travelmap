@@ -21,24 +21,36 @@
     <div id="globe" class="globe-canvas"></div>
     <div id="map" class="globe-canvas" hidden></div>
 
-    <div class="glass-bar top">
-      <div class="segmented" id="view-toggle">
-        <button class="seg is-active" data-map="globe">Globus</button>
-        <button class="seg" data-map="map">Karte</button>
-      </div>
-      <button class="round-btn" id="btn-menu" aria-label="Optionen">
-        <svg viewBox="0 0 24 24" class="ic"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
-      </button>
+    <!-- HUD-Rahmen (dekorativ) -->
+    <div class="hud-frame" aria-hidden="true">
+      <span class="hb hb1"></span><span class="hb hb2"></span><span class="hb hb3"></span><span class="hb hb4"></span>
+      <span class="hud-x"></span><span class="hud-y"></span>
+      <span class="hud-tag tl">SYS.GLOBE<br>GRID ON</span>
+      <span class="hud-tag br">ZOOM 1.8×<br>TRACKING</span>
     </div>
 
-    <div class="globe-controls">
-      <div class="segmented" id="cat-filter">
+    <div class="globe-top">
+      <div class="mc-top">
+        <span class="brand">TRAVELMAP</span>
+        <span class="live"><span class="live-dot"></span>LIVE · TRACKING</span>
+        <button class="round-btn" id="btn-menu" aria-label="Optionen">
+          <svg viewBox="0 0 24 24" class="ic"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+        </button>
+      </div>
+      <div class="coordline"><span>LAT 48.30°N</span><span>LON 14.28°E</span><span>ALT 1.8</span></div>
+      <div class="globe-controls">
+        <div class="segmented" id="view-toggle">
+          <button class="seg is-active" data-map="globe">Globus</button>
+          <button class="seg" data-map="map">Karte</button>
+        </div>
+        <div class="period-wrap">
+          <select class="period-select" id="period-globe" aria-label="Zeitraum"></select>
+        </div>
+      </div>
+      <div class="segmented cat-row" id="cat-filter">
         <button class="seg is-active" data-cat="all">Alle</button>
         <button class="seg" data-cat="business">Business</button>
         <button class="seg" data-cat="private">Privat</button>
-      </div>
-      <div class="period-wrap">
-        <select class="period-select" id="period-globe" aria-label="Zeitraum"></select>
       </div>
     </div>
 
@@ -174,13 +186,13 @@
   <!-- Bottom nav -->
   <nav class="tabbar">
     <button class="tab is-active" data-view="view-globe">
-      <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>Globus</button>
+      <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg><span class="lbl">Globus</span></button>
     <button class="tab" data-view="view-pass">
-      <svg viewBox="0 0 24 24" class="ic"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.4"/><path d="M9 15.5h6"/></svg>Pass</button>
+      <svg viewBox="0 0 24 24" class="ic"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="2.4"/><path d="M9 15.5h6"/></svg><span class="lbl">Pass</span></button>
     <button class="tab" data-view="view-review">
-      <svg viewBox="0 0 24 24" class="ic"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Rückblick</button>
+      <svg viewBox="0 0 24 24" class="ic"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="lbl">Rückblick</span></button>
     <button class="tab" data-view="view-list">
-      <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>Verlauf</button>
+      <svg viewBox="0 0 24 24" class="ic"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg><span class="lbl">Verlauf</span></button>
   </nav>
 
   <!-- Menu sheet -->
